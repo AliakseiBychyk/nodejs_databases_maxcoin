@@ -1,0 +1,14 @@
+{
+  "name": "databases_for_nodejs_dev_maxcoin",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Aliaksei Bychyk",
+  "license": "ISC",
+  "dependencies": {
+    "request": "^2.87.0"
+  }
+}
