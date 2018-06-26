@@ -25,9 +25,11 @@ function insertMongodb(collection, data) {
 
 
 MongoClient.connect(dsn, (err, client) => {
+  console.time('mongodb');
   if (err) throw err;
   const db = client.db('maxcoin');
   console.log('Connected successfully to MongoDB server');
+
   fetchFromAPI((err, data) => {
     if (err) throw err;
     const collection = db.collection('value');
@@ -37,12 +39,19 @@ MongoClient.connect(dsn, (err, client) => {
     insertMongodb(collection, data.bpi)
       .then((result) => {
         console.log(`Successfully inserted ${result.length} documents into mongodb`);
+
+        const options = { sort: [['value', 'desc']] };
+        collection.findOne({}, options)
+          .then((doc) => {
+            console.log(`MongoDB: The one month max value is ${doc.value} and it was reached on ${doc.date}`);
+            console.timeEnd('mongodb');
+            client.close();
+          })
+          .catch(err => console.log(err));
       })
       .catch((err) => {
         console.log(err);
         process.exit();
       });
-
-    client.close();
   });
 });
