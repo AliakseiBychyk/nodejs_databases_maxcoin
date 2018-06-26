@@ -2,26 +2,47 @@
 const request = require('request');
 const { MongoClient } = require('mongodb');
 
-const dsn = 'mongodb://localhost:37017/maxcoin';
+const dsn = 'mongodb://localhost:37017';
 
 // Generic function that fetches the closing bitcoin dates of the last month from a public API
 function fetchFromAPI(callback) {
+  // We are using fat arrow (=>) syntax here. This is a new way to create anonymous functions in Node
+  // Please review the Node.js documentation if this looks unfamiliar to you
+  request.get('https://api.coindesk.com/v1/bpi/historical/close.json',
+    (err, raw, body) => callback(err, JSON.parse(body)));
+}
 
-    // We are using fat arrow (=>) syntax here. This is a new way to create anonymous functions in Node
-    // Please review the Node.js documentation if this looks unfamiliar to you
-    request.get('https://api.coindesk.com/v1/bpi/historical/close.json', (err, raw, body) => {
-        return callback(err, JSON.parse(body));
-    });
+function insertMongodb(collection, data) {
+  const promisedInserts = [];
+
+  Object.keys(data).forEach((key) => {
+    promisedInserts.push(
+      collection.insertOne({ date: key, value: data[key] }),
+    );
+  });
+  return Promise.all(promisedInserts);
 }
 
 
-MongoClient.connect(dsn, (err, db) => {
+MongoClient.connect(dsn, (err, client) => {
+  if (err) throw err;
+  const db = client.db('maxcoin');
+  console.log('Connected successfully to MongoDB server');
+  fetchFromAPI((err, data) => {
     if (err) throw err;
-    console.log('Connected successfully to MongoDB server');
-    db.close();
-});
+    const collection = db.collection('value');
 
-fetchFromAPI((err, data) => {
-    if (err) throw err;
     console.log(data);
+
+    insertMongodb(collection, data.bpi)
+      .then((result) => {
+        console.log(`Successfully inserted ${result.length} documents into mongodb`);
+      })
+      .catch((err) => {
+        console.log(err);
+        process.exit();
+      });
+
+    client.close();
+  });
 });

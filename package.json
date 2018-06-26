@@ -11,5 +11,10 @@
   "dependencies": {
     "mongodb": "^3.0.10",
     "request": "^2.87.0"
+  },
+  "devDependencies": {
+    "eslint": "^5.0.1",
+    "eslint-config-airbnb-base": "^13.0.0",
+    "eslint-plugin-import": "^2.13.0"
   }
 }
