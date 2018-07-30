@@ -1,6 +1,8 @@
 // request is a module that makes http calls easier
 const request = require('request');
+const redis = require('redis');
 const { MongoClient } = require('mongodb');
+const mysql = require('mysql2');
 
 const dsn = 'mongodb://localhost:37017';
 
@@ -53,5 +55,80 @@ MongoClient.connect(dsn, (err, client) => {
         console.log(err);
         process.exit();
       });
+  });
+});
+
+function insertRedis(client, data, callback) {
+  const values = ['values'];
+
+  Object.keys(data).forEach((key) => {
+    values.push(data[key]);
+    values.push(key);
+  });
+  client.zadd(values, callback);
+}
+
+const redisClient = redis.createClient(7379);
+
+redisClient.on('connect', () => {
+  console.time('redis');
+  console.log('Successfully connected to redis');
+
+  fetchFromAPI((err, data) => {
+    if (err) throw err;
+
+    insertRedis(redisClient, data.bpi, (err, results) => {
+      if (err) throw err;
+      console.log(`Successfully inserted ${results} key/value pairs into redis`);
+
+      redisClient.zrange('values', -1, -1, 'withscores', (err, result) => {
+        if (err) throw err;
+        console.log(`Redis: Thone month max value is ${result[1]} and it was reached on ${result[0]}`);
+        console.timeEnd('redis');
+
+        redisClient.end();
+      });
+    });
+  });
+});
+
+function insertMySQL(connection, data, callback) {
+  const values = [];
+  const sql = 'INSERT INTO coinvalues (valuedate, coinvalue) VALUES ?';
+
+  Object.keys(data).forEach((key) => {
+    values.push([key, data[key]]);
+  });
+
+  connection.query(sql, [values], callback);
+}
+
+const connection = mysql.createConnection({
+  host: 'localhost',
+  port: 3406,
+  user: 'root',
+  password: 'mypassword',
+  database: 'maxcoin',
+});
+
+connection.connect((err) => {
+  if (err) throw err;
+  console.time('mysql');
+  console.log('Successfully connected to mysql');
+
+  fetchFromAPI((err, data) => {
+    if (err) throw err;
+
+    insertMySQL(connection, data.bpi, (err, results, fields) => {
+      if (err) throw err;
+      console.log(`Successfully inserted ${results.affectedRows} documents into MySQL`);
+
+      connection.query('SELECT * FROM coinvalue ORDER BY coinvalue DESC LIMIT 0,1', (err, results, fields) => {
+        if (err) throw err;
+        console.log(`MySQL: The one month max value is ${results[0].coinvalue} and was reached on ${results[0].valuedate}`);
+        console.timeEnd('mysql');
+        connection.end();
+      });
+    });
   });
 });
